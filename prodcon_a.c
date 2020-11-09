@@ -16,6 +16,7 @@
 #define DATASIZE 40
 
 const char* name = "shared_memory_tpc.c";
+bool flag = true;
 
 typedef struct
 {
@@ -60,8 +61,10 @@ void func_produce(item* item_ptr)
     //item_no, check_sum are assigned in other method
 }
 
-int main(int argc, char** argv)
+int simulate(int c)
 {
+
+    flag = true;
     //seed random
     time_t t;
     srand((unsigned) time(&t));
@@ -73,13 +76,8 @@ int main(int argc, char** argv)
 
     pthread_mutexattr_t mutex_attr;
 
-    if (argc!=2)
-    {
-        perror("incorrect usage parameters:\n________________\nusage: ./prodcon [n]\nwhere n is a positive integer\n");
-        return -1;
-    }
 
-    n = atoi(argv[1]);
+    n = c;
     pthread_mutex_init(&mutex, &mutex_attr);
 
     /* create the named semaphore (choose a name) */
@@ -127,7 +125,11 @@ int main(int argc, char** argv)
     sem_unlink("semid");
     pthread_mutex_destroy(&mutex);
     free(buffer);
-    return 0;
+
+    if (flag)
+        return 1;
+    else
+        return 0;
 
 }
 
@@ -145,29 +147,26 @@ void *thread_function(void *arg)
 
         memcpy(&instance, &(buffer[i]), sizeof(item));
 
-        char* buffer_data = malloc(DATASIZE);
+        char *buffer_data = malloc(DATASIZE);
         memcpy(buffer_data, &(buffer[i]).arr, DATASIZE);
 
-        char* instance_data = malloc(DATASIZE);
+        char *instance_data = malloc(DATASIZE);
         memcpy(instance_data, instance.arr, DATASIZE);
 
-        if (strcmp(instance_data, buffer_data)!=0)
-        {
-            printf("%s=/%s\n", instance_data, buffer_data);
-            printf("error, incorrect data copied when checking: data\n");
-            exit(-1);
+        if (strcmp(instance_data, buffer_data) != 0) {
+            //printf("%s=/%s\n", instance_data, buffer_data);
+            //printf("error, incorrect data copied when checking: data\n");
+            flag = false;
         }
-        if (instance.item_no != i)
-        {
-            printf("%d=/%d\n", instance.item_no, i);
-            printf("error, incorrect data copied when checking: item continuity\n");
-            exit(-1);
+        if (instance.item_no != i) {
+            //printf("%d=/%d\n", instance.item_no, i);
+            //printf("error, incorrect data copied when checking: item continuity\n");
+            flag = false;
         }
-        if (instance.check_sum!=ip_checksum(instance.arr, DATASIZE))
-        {
-            printf("%d=/%d\n", instance.check_sum, ip_checksum(instance.arr, DATASIZE));
-            printf("error, incorrect data copied when checking: checksum\n");
-            exit(-1);
+        if (instance.check_sum != ip_checksum(instance.arr, DATASIZE)) {
+            //printf("%d=/%d\n", instance.check_sum, ip_checksum(instance.arr, DATASIZE));
+            //printf("error, incorrect data copied when checking: checksum\n");
+            flag = false;
         }
         free(buffer_data);
         free(instance_data);
