@@ -19,7 +19,7 @@ The code is run with the syntax **./prodcon \<nitems\>** where nitems is an inte
   *\*note: control C, ^C does work to exit program at anytime*
   
 #### Errors
-![graph displaying success rate vs number of items]( "Success rate vs. N items")  
+![graph displaying success rate vs number of items](https://github.com/daus-s/threaded-producer-consumer/blob/master/Screen%20Shot%202020-11-09%20at%201.18.05%20PM.png "Success rate vs. N items")  
 The code functions best for smaller n and starts to fail more frequently when n is larger. I would like to know why this happens and am going to create a program to plot the success rate. 
 
 The process to observe the error rate consisted of a C file that would perform the same actions as the actual assignment but the return value was a `boolean` flag that specified whether the operation was successful. `true`==success, it follows, `false`==fail. However the causes of the errors were not tracked. When running from the terminal line, the behavior appeared to be different. This is not a measured observation however. 
