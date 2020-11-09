@@ -20,7 +20,7 @@ const char* name = "shared_memory_tpc.c";
 typedef struct
 {
      int item_no;                           /* number of the item produced */
-     unsigned short check_sum;              /* 16-bit Internet checksum */
+     unsigned int check_sum;                /* 16-bit Internet checksum */
      unsigned char arr[DATASIZE];           /* random generated data */
 } item;
 
@@ -52,14 +52,12 @@ pthread_mutex_t mutex;
  */
 void func_produce(item* item_ptr)
 {
-
     for (size_t i = 0; i < DATASIZE; ++i)
     {
         item_ptr->arr[i]=(unsigned char) rand() % 256;
     }
     //printf("%s\n", item_ptr->payload);
-    item_ptr->check_sum = ip_checksum(item_ptr->arr, DATASIZE);
-    //item_no is assigned in other method
+    //item_no, check_sum are assigned in other method
 }
 
 int main(int argc, char** argv)
@@ -75,7 +73,6 @@ int main(int argc, char** argv)
 
     pthread_mutexattr_t mutex_attr;
 
-
     if (argc!=2)
     {
         perror("incorrect usage parameters:\n________________\nusage: ./prodcon [n]\nwhere n is a positive integer\n");
@@ -86,7 +83,7 @@ int main(int argc, char** argv)
     pthread_mutex_init(&mutex, &mutex_attr);
 
     /* create the named semaphore (choose a name) */
-    semid = sem_open("semid", O_CREAT | O_EXCL, 0644, 0);
+    semid = sem_open("semid", O_CREAT | O_EXCL, 0644, 1);
 
     if (semid == NULL)
     {
@@ -95,9 +92,10 @@ int main(int argc, char** argv)
     }
 
     int s = sizeof(item)*n;
-    if (s > MEMSIZE)
+    if (s >= MEMSIZE)
     {
-        perror("data size to large, n must be less than 1638\n40*n must be less than 65536(64K)\n");
+        int max = (int)((float)(MEMSIZE)/((float)(sizeof(item))));
+        printf("data size to large, n must be less than %d\n40*n must be less than 65536(64K)\n", max);
         return -1;
     }
     buffer = malloc(s);
@@ -117,6 +115,7 @@ int main(int argc, char** argv)
         item instance;
         func_produce(&instance);
         instance.item_no = i;
+        instance.check_sum = ip_checksum(instance.arr, DATASIZE);
         memcpy(&(buffer[i]), &instance, sizeof(item));
         pthread_mutex_unlock(&mutex);
 
@@ -126,6 +125,7 @@ int main(int argc, char** argv)
     /* wait for the thread to exit */
     pthread_join(tid, NULL);
     sem_unlink("semid");
+    pthread_mutex_destroy(&mutex);
     free(buffer);
     return 0;
 
@@ -136,12 +136,13 @@ void *thread_function(void *arg)
     int i, upper;
 
     sem_wait(semid);
-    pthread_mutex_lock(&mutex);
 
     item instance;
     //read data
     for (size_t i = 0; i < n; ++i)
     {
+        pthread_mutex_lock(&mutex);
+
         memcpy(&instance, &(buffer[i]), sizeof(item));
 
         char* buffer_data = malloc(DATASIZE);
@@ -150,17 +151,17 @@ void *thread_function(void *arg)
         char* instance_data = malloc(DATASIZE);
         memcpy(instance_data, instance.arr, DATASIZE);
 
-        if (strncmp(instance_data, buffer_data, DATASIZE)==0)
+        if (strcmp(instance_data, buffer_data)!=0)
         {
             printf("error, incorrect data copied when checking: data\n");
             exit(-1);
         }
-        if (instance.item_no == i)
+        if (instance.item_no != i)
         {
             printf("error, incorrect data copied when checking: item continuity\n");
             exit(-1);
         }
-        if (instance.check_sum==ip_checksum(instance.arr, DATASIZE))
+        if (instance.check_sum!=ip_checksum(instance.arr, DATASIZE))
         {
             printf("error, incorrect data copied when checking: checksum\n");
             exit(-1);
